@@ -31,8 +31,12 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 URL_RE = re.compile(r"https?://\S+")
 
 # Only the Add Post page/API is gated — browsing the archive itself stays open.
-AUTH_EMAIL = "teraboxnoob@gmail.com"
-AUTH_PASSWORD = "msuwatch@4666"
+# Falls back to the original hardcoded values if AUTH_EMAIL/AUTH_PASSWORD
+# aren't set, so this keeps working with zero setup. Set them (matching
+# whatever you configured as Netlify environment variables for the live
+# site's functions) if you want one login shared between local and live.
+AUTH_EMAIL = os.environ.get("AUTH_EMAIL", "teraboxnoob@gmail.com")
+AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "mustwatch@4666")
 AUTH_REALM = "mustwatch-add-post"
 # add-post.html itself loads openly now — the page shows its own "log in
 # first" gate client-side (assets/js/add-post.js + auth.js). Only the

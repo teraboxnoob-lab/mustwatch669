@@ -4,8 +4,12 @@ A static, generated web archive of the existing Telegram/Discord post collection
 from `~/telegram-discord-bridge`. This is a **standalone project** — it does not
 depend on the bridge project at runtime, only its build script reads from it.
 
-No login, no accounts, no database, no backend. Just static HTML/CSS/JS + a
-generated JSON data file + copied media files.
+No accounts, no database. Browsing is just static HTML/CSS/JS + a generated
+JSON data file + copied media files — the only login is a single shared
+email/password gate in front of the Add Post form, checked either by
+`scripts/local_server.py` (running on your own machine) or, once deployed,
+by the Netlify Functions in `netlify/functions/` (see "Deploying to Netlify"
+below).
 
 ## What's in here
 
@@ -15,7 +19,7 @@ mustwatch-web/
   post.html                Post detail page (POST NO. view, gallery, prev/next)
   add-post.html            Manual "add a new post" form (needs local_server.py, see below)
   assets/css/style.css     Dark, mobile-first styling
-  assets/js/data.js        Shared data loader (fetches the JSON below)
+  assets/js/data.js        Shared data loader (fetches the JSON below + merges the live overlay)
   assets/js/home.js        Home page logic: search + feed + scroller
   assets/js/post.js        Post detail logic: gallery, link button, prev/next
   assets/js/add-post.js    Add-post form logic
@@ -24,9 +28,13 @@ mustwatch-web/
   data/build-meta.json                Build stats (counts, missing post numbers, etc.)
   media/telegram-media-complete/...          Copied media (only files actually referenced by a post)
   media/telegram-media-discord-checking/...
-  media/added/<post_id>/...           Media uploaded through add-post.html
+  media/added/<post_id>/...           Media uploaded locally through add-post.html
   scripts/build_data.py    (Re)generates the initial archive from the source project
-  scripts/local_server.py  Static file server + the add-post API endpoint
+  scripts/local_server.py  Static file server + the add-post API endpoint (local use)
+  netlify/functions/       Same add-post API, reimplemented for the deployed site
+                            (auth, add/edit/delete-post, posts-feed, media) — see
+                            "Deploying to Netlify" below
+  netlify.toml, package.json   Netlify Functions config + @netlify/blobs dependency
 ```
 
 Total: 1659 numbered posts (of the 1-1788 range; 129 numbers are missing and
@@ -113,19 +121,66 @@ entire source media directories — to avoid duplicating unused files.
 
 ## Security
 
-- No secrets are referenced anywhere in this project. `.env`, session files,
-  Telegram API credentials, and Discord webhooks from the source project were
-  never copied here and are not read by any client-side code.
-- Nothing here talks to a network service other than serving the static files
-  you're already hosting.
+- No secrets from the source `telegram-discord-bridge` project are referenced
+  anywhere here. `.env`, session files, Telegram API credentials, and Discord
+  webhooks were never copied here and are not read by any client-side code.
+- The Add Post login is a single shared email/password, not per-user
+  accounts. Locally it's read from `AUTH_EMAIL`/`AUTH_PASSWORD` env vars (or
+  `scripts/local_server.py`'s hardcoded fallback if unset). On Netlify it's
+  read only from the `AUTH_EMAIL`/`AUTH_PASSWORD` environment variables you
+  set in the dashboard — there's no fallback there, so an unset value means
+  login always fails rather than silently accepting a known default.
+- `scripts/local_server.py`'s hardcoded fallback credentials
+  (`teraboxnoob@gmail.com` / `msuwatch@4666`) are in this repo's git history.
+  Don't reuse them as your live Netlify credentials — pick fresh values when
+  setting the env vars.
+- Everything client-side talks only to `/api/*` on the same origin (no
+  third-party network calls); those routes are served either by
+  `local_server.py` or the Netlify Functions, both bound to this project's
+  own auth check.
 
-## Deploying to static hosting later
+## Deploying to Netlify (with a working Add Post / login)
 
-This is a plain static site (HTML/CSS/JS + JSON + images/videos), so it can be
-deployed as-is to any static host (Netlify, Vercel, GitHub Pages, Cloudflare
-Pages, S3 + CloudFront, etc.) — just upload/push this entire directory. No
-build step is required at deploy time (the data is already generated); only
-re-run `scripts/build_data.py` and redeploy if the source archive changes.
+Browsing the archive is a plain static site and works on any static host with
+zero setup. Add Post / login on the *deployed* site additionally needs the
+Netlify Functions in `netlify/functions/` (they re-implement
+`scripts/local_server.py`'s auth + add/edit/delete-post logic, but backed by
+[Netlify Blobs](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)
+instead of local files, since a Function can't write back into the static
+files that were deployed from git):
+
+1. Push this repo to the git provider Netlify is watching — it auto-detects
+   `netlify/functions/` (see `netlify.toml`) and `package.json`
+   (`@netlify/blobs`), no manual build command needed.
+2. In the Netlify dashboard: **Site settings → Environment variables**, set
+   `AUTH_EMAIL` and `AUTH_PASSWORD` to whatever login you want for the live
+   site. There is no default — if these aren't set, login always fails.
+   (The old hardcoded `teraboxnoob@gmail.com` / `msuwatch@4666` pair in
+   `local_server.py` is already in git history; treat those as burned and
+   pick fresh values here rather than reusing them.)
+3. Trigger a redeploy after setting env vars so the functions pick them up,
+   then open `/add-post.html` on the live URL and log in.
+
+**Local and live adds are two separate stores.** `local_server.py` still
+writes straight to `data/website-posts.json` + `media/added/` on your disk —
+those only reach the live site once you git-commit + push + redeploy. Posts
+added through the *live* site are saved to Netlify Blobs and appear
+immediately (no redeploy), but they don't exist in your local files unless
+you reconcile them back manually. Use whichever fits the moment: bulk/offline
+backfilling → `local_server.py`; a quick add from your phone → the live site.
+
+**Live uploads are capped at ~4MB per file** (Netlify Functions' request-size
+limit) — you'll get a clear error naming the file if you hit it. Most photos
+are well under that; for larger videos, add them locally with
+`local_server.py` and redeploy instead.
+
+## Deploying to other static hosting
+
+For a host without a Functions/Blobs equivalent (Vercel, GitHub Pages,
+Cloudflare Pages, S3 + CloudFront, etc.), just upload/push this directory —
+browsing works identically, but Add Post / login will only work by running
+`scripts/local_server.py` on your own machine (see above), not from the
+deployed URL.
 
 The `media/` directory is ~490MB. If your host has upload size limits, you
 may want to move media to an object storage bucket/CDN and update the `path`

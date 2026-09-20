@@ -14,11 +14,11 @@
       if (m.type === "video") {
         return `<div class="gallery-item">
           <video controls preload="metadata" playsinline>
-            <source src="${m.path}" />
+            <source src="${Archive.mediaUrl(m.path)}" />
           </video>
         </div>`;
       }
-      return `<div class="gallery-item"><img src="${m.path}" alt="" loading="lazy" /></div>`;
+      return `<div class="gallery-item"><img src="${Archive.mediaUrl(m.path)}" alt="" loading="lazy" /></div>`;
     }).join("");
     return `<div class="gallery ${countClass}">${items}</div>`;
   }

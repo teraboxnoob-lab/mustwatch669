@@ -16,9 +16,7 @@
   const fastScrollerTrack = document.getElementById("fast-scroller-track");
   const fastScrollerThumb = document.getElementById("fast-scroller-thumb");
   const fastScrollerTooltip = document.getElementById("fast-scroller-tooltip");
-  const rangeTicks = document.getElementById("range-ticks");
-  const RANGE_BUCKET_SIZE = 100;
-  const RANGE_MAX_NUMBER = 1788;
+  const jumpToggleBtn = document.getElementById("jump-toggle-btn");
 
   const SUGGESTION_LIMIT = 8;
   const DEFAULT_HINT = "Type a post number (e.g. 392) to jump straight to it, or type text to see matching posts.";
@@ -36,6 +34,7 @@
   let indicatorObserver = null;
   let isDragging = false;
   let indicatorHideTimer = null;
+  let jumpToggleAtEnd = false;
 
   function permalink(post) {
     return typeof post.post_id === "number"
@@ -52,8 +51,8 @@
     if (media.length === 1) {
       const m = media[0];
       const tag = m.type === "video"
-        ? `<img data-src="${m.path}" alt="" class="lazy-thumb"><span class="badge-video">▶ Video</span>`
-        : `<img data-src="${m.path}" alt="" class="lazy-thumb">`;
+        ? `<img data-src="${Archive.mediaUrl(m.path)}" alt="" class="lazy-thumb"><span class="badge-video">▶ Video</span>`
+        : `<img data-src="${Archive.mediaUrl(m.path)}" alt="" class="lazy-thumb">`;
       return `<a href="${permalink(post)}">${tag}</a>`;
     }
 
@@ -63,7 +62,7 @@
       const isLast = i === shown.length - 1 && extra > 0;
       const videoBadge = m.type === "video" ? `<span class="badge-video">▶</span>` : "";
       return `<div style="position:relative">
-        <img data-src="${m.path}" alt="" class="lazy-thumb">
+        <img data-src="${Archive.mediaUrl(m.path)}" alt="" class="lazy-thumb">
         ${videoBadge}
         ${isLast ? `<div class="extra-count">+${extra}</div>` : ""}
       </div>`;
@@ -108,8 +107,12 @@
       </article>`;
   }
 
-  function lazyLoadObserver() {
-    if (observer) observer.disconnect();
+  // A single persistent observer, fed only the images from freshly-inserted
+  // posts (observeLazyImages), instead of re-scanning every image in the
+  // document on each render. Re-querying the whole feed on every drag tick
+  // of the fast-scroller was the main cause of the scroller feeling stuck.
+  function ensureLazyObserver() {
+    if (observer) return;
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -122,7 +125,15 @@
         }
       });
     }, { rootMargin: "300px 0px" });
-    document.querySelectorAll(".lazy-thumb[data-src]").forEach((img) => observer.observe(img));
+  }
+
+  function observeLazyImages(fromIndex, toIndex) {
+    ensureLazyObserver();
+    for (let i = fromIndex; i < toIndex; i++) {
+      const el = document.getElementById(`feed-post-${i}`);
+      if (!el) continue;
+      el.querySelectorAll(".lazy-thumb[data-src]").forEach((img) => observer.observe(img));
+    }
   }
 
   // Renders every not-yet-rendered post up to (and including) targetIndex in
@@ -136,7 +147,7 @@
     feed.insertAdjacentHTML("beforeend", html);
     const startIndex = renderedCount;
     renderedCount = upto;
-    lazyLoadObserver();
+    observeLazyImages(startIndex, renderedCount);
     observeIndicator(startIndex);
     loaderRow.style.display = renderedCount < currentList.length ? "flex" : "none";
   }
@@ -247,24 +258,7 @@
     fastScrollerThumb.style.top = "0px";
     fastScrollerTooltip.classList.remove("visible");
     scrollIndicator.classList.remove("visible");
-    buildRangeTicks(totalCount);
-  }
-
-  // "1-100 / 101-200 / ..." one-tap stops next to the drag thumb, for
-  // coarse jumps without needing to drag precisely.
-  function buildRangeTicks(totalCount) {
-    if (currentSection !== "numbered" || totalCount <= BATCH_SIZE) {
-      rangeTicks.classList.remove("visible");
-      rangeTicks.innerHTML = "";
-      return;
-    }
-    let html = "";
-    for (let start = 1; start <= RANGE_MAX_NUMBER; start += RANGE_BUCKET_SIZE) {
-      const end = Math.min(start + RANGE_BUCKET_SIZE - 1, RANGE_MAX_NUMBER);
-      html += `<div class="range-tick" data-start="${start}" title="POST ${start}–${end}"><span class="dot"></span></div>`;
-    }
-    rangeTicks.innerHTML = html;
-    rangeTicks.classList.add("visible");
+    resetJumpToggle();
   }
 
   function jumpToIndex(targetIndex, { showTooltip = false, smooth = false } = {}) {
@@ -301,17 +295,6 @@
     jumpToIndex(targetIndex, { showTooltip, smooth: false });
   }
 
-  // Jumps to the first existing post whose number is >= startNum (used by
-  // the "1-100 / 101-200 / ..." range ticks). Falls back to the nearest
-  // post below startNum if nothing at/after it exists in this section.
-  function jumpToPostNumber(startNum) {
-    if (currentSection !== "numbered") return;
-    let idx = currentList.findIndex((p) => typeof p.post_id === "number" && p.post_id >= startNum);
-    if (idx === -1) idx = currentList.length - 1;
-    jumpToIndex(idx, { showTooltip: true, smooth: true });
-    setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 900);
-  }
-
   function setupFastScroller() {
     function fractionFromClientY(clientY) {
       const rect = trackRect();
@@ -319,51 +302,85 @@
       return (y - rect.top) / rect.height;
     }
 
+    // Raw pointermove fires far faster than the feed can usefully re-render
+    // (each jump can insert hundreds of posts). Without throttling, dragging
+    // the thumb queued up a jumpToFraction render per pixel of movement and
+    // the thumb fell badly behind the pointer, which read as "dragging does
+    // nothing". Coalescing to one jump per animation frame keeps it live.
+    let dragRAF = null;
+    let latestDragY = 0;
+
+    // Drag tracking lives on the whole rail (fastScroller), not just the
+    // 18px-wide thumb. It used to be split: pointerdown/move/up only on the
+    // thumb, plus a separate one-off "jump on click" handler on the rail for
+    // clicks that missed the thumb. A real press very often lands a pixel or
+    // two off the thumb and hits the rail instead — that fired only the
+    // one-off jump, never set isDragging, and follow-up pointermove events
+    // (still targeting the rail) had no handler at all. So the very first
+    // press-and-drag gesture most people tried simply did nothing after the
+    // initial jump. Handling everything on the rail (the thumb is a child of
+    // it, so its events bubble up) means any press-and-drag anywhere on the
+    // scrollbar reliably starts and continues a drag.
     function onPointerDown(e) {
       if (currentList.length === 0) return;
       isDragging = true;
       fastScrollerThumb.classList.add("dragging");
-      try { fastScrollerThumb.setPointerCapture(e.pointerId); } catch (_) {}
+      try { fastScroller.setPointerCapture(e.pointerId); } catch (_) {}
       jumpToFraction(fractionFromClientY(e.clientY), true);
     }
 
     function onPointerMove(e) {
       if (!isDragging) return;
-      jumpToFraction(fractionFromClientY(e.clientY), true);
+      latestDragY = e.clientY;
+      if (dragRAF) return;
+      dragRAF = requestAnimationFrame(() => {
+        dragRAF = null;
+        jumpToFraction(fractionFromClientY(latestDragY), true);
+      });
     }
 
     function onPointerUp(e) {
       if (!isDragging) return;
       isDragging = false;
+      if (dragRAF) {
+        cancelAnimationFrame(dragRAF);
+        dragRAF = null;
+      }
       fastScrollerThumb.classList.remove("dragging");
-      try { fastScrollerThumb.releasePointerCapture(e.pointerId); } catch (_) {}
+      try { fastScroller.releasePointerCapture(e.pointerId); } catch (_) {}
       fastScrollerTooltip.classList.remove("visible");
       showIndicator();
     }
 
-    fastScrollerThumb.addEventListener("pointerdown", onPointerDown);
-    fastScrollerThumb.addEventListener("pointermove", onPointerMove);
-    fastScrollerThumb.addEventListener("pointerup", onPointerUp);
-    fastScrollerThumb.addEventListener("pointercancel", onPointerUp);
-
-    // Clicking/tapping anywhere on the rail (not just the thumb) jumps there
-    // too — the thumb itself is only 18-22px wide, the whole rail is the
-    // real touch target.
-    fastScroller.addEventListener("pointerdown", (e) => {
-      if (e.target === fastScrollerThumb) return;
-      jumpToFraction(fractionFromClientY(e.clientY), true);
-      setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 500);
-    });
+    fastScroller.addEventListener("pointerdown", onPointerDown);
+    fastScroller.addEventListener("pointermove", onPointerMove);
+    fastScroller.addEventListener("pointerup", onPointerUp);
+    fastScroller.addEventListener("pointercancel", onPointerUp);
   }
 
-  function setupRangeTicks() {
-    rangeTicks.addEventListener("click", (e) => {
-      const tick = e.target.closest(".range-tick");
-      if (!tick) return;
-      const start = parseInt(tick.dataset.start, 10);
-      rangeTicks.querySelectorAll(".range-tick").forEach((el) => el.classList.remove("active"));
-      tick.classList.add("active");
-      jumpToPostNumber(start);
+  // Bottom-right FAB: jumps to the last post, then flips to jump back to
+  // the first post on the next tap (and back again), like a toggle.
+  function resetJumpToggle() {
+    jumpToggleAtEnd = false;
+    if (!jumpToggleBtn) return;
+    jumpToggleBtn.textContent = "⌄";
+    jumpToggleBtn.title = "Jump to last post";
+    jumpToggleBtn.setAttribute("aria-label", "Jump to last post");
+  }
+
+  function setupJumpToggle() {
+    if (!jumpToggleBtn) return;
+    jumpToggleBtn.addEventListener("click", () => {
+      if (currentList.length === 0) return;
+      const targetIndex = jumpToggleAtEnd ? 0 : currentList.length - 1;
+      jumpToIndex(targetIndex, { showTooltip: true, smooth: true });
+      setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 900);
+
+      jumpToggleAtEnd = !jumpToggleAtEnd;
+      jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃" : "⌄";
+      const label = jumpToggleAtEnd ? "Jump to first post" : "Jump to last post";
+      jumpToggleBtn.title = label;
+      jumpToggleBtn.setAttribute("aria-label", label);
     });
   }
 
@@ -411,7 +428,7 @@
   function suggestionRowHtml(post, index, { isNumeric, query, exactJump }) {
     const media = post.media && post.media[0];
     const thumb = media
-      ? `<img src="${media.path}" alt="" loading="lazy">`
+      ? `<img src="${Archive.mediaUrl(media.path)}" alt="" loading="lazy">`
       : `<span>No img</span>`;
     const isJump = exactJump && post.post_id === exactJump.post_id;
     const idLabel = typeof post.post_id === "number" ? `#${post.post_id}` : "Unnumbered";
@@ -526,7 +543,7 @@
     setupInfiniteScroll();
     setupIndicatorObserver();
     setupFastScroller();
-    setupRangeTicks();
+    setupJumpToggle();
     resetFeed(allPosts);
 
     searchInput.addEventListener("input", () => renderDropdown(searchInput.value));
