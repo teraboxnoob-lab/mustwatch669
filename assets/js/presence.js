@@ -37,10 +37,10 @@
       const data = await res.json();
       if (data && data.success) {
         badge.textContent = `🟢 ${data.online} online`;
-        badge.style.display = "";
+        badge.classList.add("visible");
       }
     } catch {
-      badge.style.display = "none";
+      badge.classList.remove("visible");
     }
   }
 

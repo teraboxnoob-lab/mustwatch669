@@ -89,6 +89,8 @@ img, video { max-width: 100%; display: block; }
   white-space: nowrap;
 }
 
+.online-badge.visible { display: inline-flex; }
+
 .header-links {
   display: flex;
   gap: 16px;
