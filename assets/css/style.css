@@ -909,6 +909,25 @@ footer.site-footer {
 .auth-modal-actions .nav-btn { flex: 1; }
 .auth-modal-actions .btn { flex: 1; padding: 12px; }
 
+.password-field-wrap { position: relative; }
+.password-field-wrap .text-field { padding-right: 40px; margin-top: 0; }
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.password-toggle-btn:hover { color: var(--text); }
+
 @media (min-width: 640px) {
   .post-page { padding-top: 32px; }
   .nav-row { gap: 14px; }

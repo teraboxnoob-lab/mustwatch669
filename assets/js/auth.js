@@ -49,7 +49,10 @@ const Auth = (() => {
         <div class="auth-modal-title">Access</div>
         <form id="auth-modal-form">
           <input type="email" id="auth-email" class="text-field" placeholder="Email" autocomplete="username" required />
-          <input type="password" id="auth-password" class="text-field" placeholder="Password" autocomplete="current-password" required style="margin-top:10px" />
+          <div class="password-field-wrap" style="margin-top:10px">
+            <input type="password" id="auth-password" class="text-field" placeholder="Password" autocomplete="current-password" required />
+            <button type="button" id="auth-password-toggle" class="password-toggle-btn" aria-label="Show password">👁</button>
+          </div>
           <div class="form-status error" id="auth-error"></div>
           <div class="auth-modal-actions">
             <button type="button" class="nav-btn" id="auth-cancel">Cancel</button>
@@ -61,6 +64,14 @@ const Auth = (() => {
 
     document.getElementById("auth-cancel").addEventListener("click", closeModal);
     wrap.addEventListener("click", (e) => { if (e.target === wrap) closeModal(); });
+    document.getElementById("auth-password-toggle").addEventListener("click", () => {
+      const field = document.getElementById("auth-password");
+      const btn = document.getElementById("auth-password-toggle");
+      const showing = field.type === "text";
+      field.type = showing ? "password" : "text";
+      btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+      btn.textContent = showing ? "👁" : "🙈";
+    });
     document.getElementById("auth-modal-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("auth-email").value.trim();
