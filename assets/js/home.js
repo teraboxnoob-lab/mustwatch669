@@ -261,14 +261,37 @@
     resetJumpToggle();
   }
 
+  // Scrolls so el's top sits headerOffset below the viewport top, based on
+  // el's *current* position (not a precomputed one) so it stays correct
+  // even if the page has grown/shrunk since the last measurement.
+  function scrollElementToTop(el, headerOffset, behavior) {
+    const diff = el.getBoundingClientRect().top - headerOffset;
+    window.scrollTo({ top: Math.max(0, window.scrollY + diff), behavior });
+  }
+
+  // Jumping straight to a far-away post (e.g. post 1 -> the last post)
+  // inserts hundreds of posts' worth of <img data-src> at once, none of
+  // which have loaded yet (ensureLazyObserver only loads images within
+  // 300px of the viewport). So the initial scroll lands short - it's
+  // computed against collapsed, not-yet-loaded image heights. Re-snap to
+  // the same element a few times as those nearby images load in and the
+  // layout grows, until the position settles.
+  function settleScrollTo(el, headerOffset, attemptsLeft = 6) {
+    if (attemptsLeft <= 0) return;
+    setTimeout(() => {
+      scrollElementToTop(el, headerOffset, "auto");
+      settleScrollTo(el, headerOffset, attemptsLeft - 1);
+    }, 180);
+  }
+
   function jumpToIndex(targetIndex, { showTooltip = false, smooth = false } = {}) {
     renderUpTo(targetIndex);
     const el = document.getElementById(`feed-post-${targetIndex}`);
     if (el) {
       const headerOffset = document.querySelector(".site-header").offsetHeight + 8;
-      const top = el.getBoundingClientRect().top + window.scrollY - headerOffset;
       if (smooth) suppressObserverUntilScrollSettles();
-      window.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+      scrollElementToTop(el, headerOffset, smooth ? "smooth" : "auto");
+      settleScrollTo(el, headerOffset);
     }
     updateCurrentIndex(targetIndex, true);
 
