@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Post — MustWatch Archive</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container bar">
+      <a class="brand" href="index.html"><span class="dot"></span> MustWatch Archive</a>
+      <nav class="header-links">
+        <a href="index.html">Home</a>
+        <a href="add-post.html" class="nav-add-post" style="display:none">Add Post</a>
+        <button type="button" class="nav-access-btn">Access</button>
+        <button type="button" class="nav-logout-btn" style="display:none">Log out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="post-page">
+    <a class="back-link" href="index.html">← Back to archive</a>
+    <div class="post-title" id="page-heading">Add a Post</div>
+
+    <div id="logged-out-gate" style="display:none">
+      <p class="post-date">You need to log in to add, edit, or delete posts.</p>
+      <button type="button" class="btn btn-primary nav-access-btn" style="width:auto; padding:12px 24px;">Access</button>
+    </div>
+
+    <form id="add-post-form" class="add-post-form">
+      <label class="field-label" id="unnumbered-toggle-label">
+        <input type="checkbox" id="unnumbered-toggle" />
+        This is an unnumbered post (no POST # from the group)
+      </label>
+
+      <div id="post-number-field">
+        <label class="field-label" for="post-id">Post number</label>
+        <input type="number" id="post-id" min="1" step="1" class="text-field" placeholder="e.g. 1789" />
+      </div>
+
+      <label class="field-label" for="post-date">Date &amp; time</label>
+      <input type="datetime-local" id="post-date" class="text-field" />
+
+      <label class="field-label" for="post-text">Caption / text (paste from Telegram)</label>
+      <textarea id="post-text" class="text-field textarea" rows="6" placeholder="POST NO 1789&#10;&#10;caption text...&#10;&#10;LINK - https://..."></textarea>
+
+      <div class="link-preview" id="link-preview"></div>
+
+      <div id="existing-media-field" style="display:none;">
+        <label class="field-label">Current media (uncheck to remove)</label>
+        <div class="media-preview" id="existing-media"></div>
+      </div>
+
+      <label class="field-label" for="post-media">Add media files (images/videos)</label>
+      <input type="file" id="post-media" accept="image/*,video/*" multiple class="text-field" />
+      <div class="media-preview" id="media-preview"></div>
+
+      <label class="field-label" id="overwrite-toggle-label">
+        <input type="checkbox" id="overwrite-toggle" />
+        Overwrite if this post number already exists
+      </label>
+
+      <button type="submit" class="btn btn-primary" id="submit-btn">Save Post</button>
+      <button type="button" class="nav-btn danger" id="cancel-edit-btn" style="display:none;">Cancel edit</button>
+      <div class="form-status" id="form-status"></div>
+    </form>
+
+    <div class="help-block">
+      <strong>Running this for the first time?</strong> A plain static server can't write
+      files, so this page needs the small local helper server instead:
+      <code>python3 scripts/local_server.py</code> from the <code>mustwatch-web</code> folder,
+      then open the site at <code>http://127.0.0.1:8000/</code> and click <strong>Access</strong>
+      in the top nav to log in. It only listens on your machine — never on the network —
+      and never pushes or publishes anything.
+    </div>
+  </main>
+
+  <footer class="site-footer">MustWatch Archive · generated locally · no login, no tracking</footer>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/add-post.js"></script>
+</body>
+</html>

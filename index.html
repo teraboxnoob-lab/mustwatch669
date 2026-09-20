@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MustWatch Archive</title>
+  <meta name="description" content="A browsable archive of saved posts." />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container bar">
+      <div class="brand"><span class="dot"></span> MustWatch Archive</div>
+      <nav class="header-links">
+        <a href="index.html">Home</a>
+        <a href="add-post.html" class="nav-add-post" style="display:none">Add Post</a>
+        <button type="button" class="nav-access-btn">Access</button>
+        <button type="button" class="nav-logout-btn" style="display:none">Log out</button>
+      </nav>
+    </div>
+    <div class="container header-search-row">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="search-input" class="search-input" type="text" placeholder="Enter a post number to jump, or type to search…" autocomplete="off" />
+        <div class="search-results" id="search-results"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="channel-id">
+        <div class="channel-avatar">M</div>
+        <div>
+          <h1>MustWatch Archive</h1>
+          <p>Channel archive · scroll like Telegram, chronological</p>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-pill">Posts: <strong id="stat-total">…</strong></div>
+        <div class="stat-pill">Range: <strong id="stat-range">…</strong></div>
+        <div class="stat-pill">Missing numbers: <strong id="stat-missing">…</strong></div>
+      </div>
+
+      <div class="section-toggle" id="section-toggle">
+        <button class="toggle-btn active" data-section="numbered" type="button">Numbered Archive</button>
+        <button class="toggle-btn" data-section="unnumbered" type="button">Unnumbered Posts</button>
+      </div>
+
+      <div class="search-meta" id="search-meta">Type a post number (e.g. 392) to jump straight to it, or type text to see matching posts.</div>
+    </section>
+
+    <section class="feed" id="feed"></section>
+    <div class="loader-row" id="loader-row">Loading more…</div>
+  </main>
+
+  <footer class="site-footer">MustWatch Archive · generated locally · no login, no tracking</footer>
+
+  <div class="scroll-indicator" id="scroll-indicator"></div>
+
+  <div class="range-ticks" id="range-ticks"></div>
+
+  <div class="fast-scroller" id="fast-scroller">
+    <div class="fast-scroller-track" id="fast-scroller-track">
+      <div class="fast-scroller-thumb" id="fast-scroller-thumb"></div>
+    </div>
+    <div class="fast-scroller-tooltip" id="fast-scroller-tooltip"></div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/home.js"></script>
+</body>
+</html>
