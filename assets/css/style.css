@@ -727,11 +727,12 @@ footer.site-footer {
 }
 
 /* Bottom-right toggle: jumps to the last post, then back to the first on
-   the next tap. Sits below the fast-scroller so the two never overlap. */
+   the next tap. bottom matches .fast-scroller's offset so both clear the
+   "Powered by Netlify" badge the free tier overlays in that corner. */
 .jump-toggle-btn {
   position: fixed;
   right: 12px;
-  bottom: 20px;
+  bottom: 84px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
