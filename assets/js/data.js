@@ -106,6 +106,21 @@ const Archive = (() => {
     });
   }
 
+  // Strips any line that contains a URL (e.g. "LINK - https://...",
+  // "VIDEO PREVIEW - https://...") out of the displayed caption - those
+  // links are already surfaced as their own "Watch / Open" / "Link N"
+  // buttons (see post.links), so repeating the raw URL in the text is
+  // redundant.
+  function stripLinkLines(text) {
+    if (!text) return "";
+    return text
+      .split("\n")
+      .filter((line) => !/https?:\/\/\S+/.test(line))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   function escapeHtml(str) {
     return (str || "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;",
@@ -126,5 +141,6 @@ const Archive = (() => {
     formatDate,
     escapeHtml,
     mediaUrl,
+    stripLinkLines,
   };
 })();

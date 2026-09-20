@@ -98,7 +98,7 @@
         </div>
         <div class="feed-media">${mediaHtml(post)}</div>
         <div class="feed-body">
-          <div class="feed-text">${Archive.escapeHtml(post.text)}</div>
+          <div class="feed-text">${Archive.escapeHtml(Archive.stripLinkLines(post.text))}</div>
           ${linksHtml(post.links)}
           <div class="feed-foot">
             <a class="feed-view" href="${permalink(post)}">View post →</a>
@@ -386,7 +386,7 @@
   function resetJumpToggle() {
     jumpToggleAtEnd = false;
     if (!jumpToggleBtn) return;
-    jumpToggleBtn.textContent = "⌄";
+    jumpToggleBtn.textContent = "⌄ End Post";
     jumpToggleBtn.title = "Jump to last post";
     jumpToggleBtn.setAttribute("aria-label", "Jump to last post");
   }
@@ -400,7 +400,7 @@
       setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 900);
 
       jumpToggleAtEnd = !jumpToggleAtEnd;
-      jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃" : "⌄";
+      jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Start Post" : "⌄ End Post";
       const label = jumpToggleAtEnd ? "Jump to first post" : "Jump to last post";
       jumpToggleBtn.title = label;
       jumpToggleBtn.setAttribute("aria-label", label);
@@ -456,8 +456,8 @@
     const isJump = exactJump && post.post_id === exactJump.post_id;
     const idLabel = typeof post.post_id === "number" ? `#${post.post_id}` : "Unnumbered";
     const snippet = isNumeric
-      ? Archive.escapeHtml(Archive.textPreview(post.text, 90))
-      : highlightSnippet(post.text, query);
+      ? Archive.escapeHtml(Archive.textPreview(Archive.stripLinkLines(post.text), 90))
+      : highlightSnippet(Archive.stripLinkLines(post.text), query);
 
     return `
       <div class="search-result-item${isJump ? " jump-item" : ""}" data-index="${index}">

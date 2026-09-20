@@ -64,7 +64,7 @@
       <div class="post-title">${idLabel}</div>
       <div class="post-date">${date || "Date unavailable"}</div>
       ${galleryHtml(post.media)}
-      <div class="post-text">${Archive.escapeHtml(post.text)}</div>
+      <div class="post-text">${Archive.escapeHtml(Archive.stripLinkLines(post.text))}</div>
       ${linksHtml(post.links)}
       ${loggedIn ? ownerControlsHtml(post, isUnnumbered) : ""}
       <div class="nav-row">
