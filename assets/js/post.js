@@ -60,7 +60,7 @@
     const date = Archive.formatDate(post.date);
 
     content.innerHTML = `
-      <a class="back-link" href="index.html">← Back to archive</a>
+      <a class="back-link" href="index.html">← Back to mustwatch69 archive</a>
       <div class="post-title">${idLabel}</div>
       <div class="post-date">${date || "Date unavailable"}</div>
       ${galleryHtml(post.media)}
@@ -105,12 +105,12 @@
       const postId = parseInt(idParam, 10);
       const post = await Archive.getById(postId);
       if (!post) {
-        content.innerHTML = `<div class="empty-state">POST ${Archive.escapeHtml(idParam)} does not exist in the archive.<br><a class="back-link" href="index.html">← Back to archive</a></div>`;
-        document.title = "Post not found — MustWatch Archive";
+        content.innerHTML = `<div class="empty-state">POST ${Archive.escapeHtml(idParam)} does not exist in the archive.<br><a class="back-link" href="index.html">← Back to mustwatch69 archive</a></div>`;
+        document.title = "Post not found — mustwatch69";
         return;
       }
       const { prev, next } = await Archive.neighbors(postId);
-      document.title = `POST ${postId} — MustWatch Archive`;
+      document.title = `POST ${postId} — mustwatch69`;
       render(post, { prev, next, isUnnumbered: false, loggedIn });
       return;
     }
@@ -119,18 +119,18 @@
       const unnumbered = await Archive.loadUnnumbered();
       const idx = unnumbered.findIndex((p) => p.post_id === uidParam);
       if (idx === -1) {
-        content.innerHTML = `<div class="empty-state">Post not found.<br><a class="back-link" href="index.html">← Back to archive</a></div>`;
+        content.innerHTML = `<div class="empty-state">Post not found.<br><a class="back-link" href="index.html">← Back to mustwatch69 archive</a></div>`;
         return;
       }
       const post = unnumbered[idx];
       const prev = idx > 0 ? unnumbered[idx - 1] : null;
       const next = idx < unnumbered.length - 1 ? unnumbered[idx + 1] : null;
-      document.title = `Unnumbered Post — MustWatch Archive`;
+      document.title = `Unnumbered Post — mustwatch69`;
       render(post, { prev, next, isUnnumbered: true, loggedIn });
       return;
     }
 
-    content.innerHTML = `<div class="empty-state">No post specified.<br><a class="back-link" href="index.html">← Back to archive</a></div>`;
+    content.innerHTML = `<div class="empty-state">No post specified.<br><a class="back-link" href="index.html">← Back to mustwatch69 archive</a></div>`;
   }
 
   init().catch((err) => {

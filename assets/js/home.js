@@ -284,6 +284,14 @@
     }, 180);
   }
 
+  function settleScrollToBottom(attemptsLeft = 6) {
+    if (attemptsLeft <= 0) return;
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "auto" });
+      settleScrollToBottom(attemptsLeft - 1);
+    }, 180);
+  }
+
   function jumpToIndex(targetIndex, { showTooltip = false, smooth = false } = {}) {
     renderUpTo(targetIndex);
     const el = document.getElementById(`feed-post-${targetIndex}`);
@@ -395,9 +403,26 @@
     if (!jumpToggleBtn) return;
     jumpToggleBtn.addEventListener("click", () => {
       if (currentList.length === 0) return;
-      const targetIndex = jumpToggleAtEnd ? 0 : currentList.length - 1;
-      jumpToIndex(targetIndex, { showTooltip: true, smooth: true });
-      setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 900);
+      
+      suppressObserverUntilScrollSettles();
+
+      if (jumpToggleAtEnd) {
+        // Start Post: scroll to absolute top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateCurrentIndex(0, true);
+        fastScrollerThumb.style.top = "0px";
+      } else {
+        // End Post: scroll to absolute bottom
+        const lastIndex = currentList.length - 1;
+        renderUpTo(lastIndex);
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        settleScrollToBottom();
+        updateCurrentIndex(lastIndex, true);
+        if (trackRect().height > 0) {
+          const thumbTop = trackRect().height - fastScrollerThumb.offsetHeight;
+          fastScrollerThumb.style.top = `${thumbTop}px`;
+        }
+      }
 
       jumpToggleAtEnd = !jumpToggleAtEnd;
       jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Start Post" : "⌄ End Post";
@@ -442,9 +467,7 @@
     }
 
     const q = query.toLowerCase();
-    const suggestions = base
-      .filter((p) => (p.text || "").toLowerCase().includes(q))
-      .slice(0, SUGGESTION_LIMIT);
+    const suggestions = base.filter((p) => (p.text || "").toLowerCase().includes(q));
     return { suggestions, exactJump: null, isNumeric: false, query };
   }
 
@@ -520,7 +543,14 @@
 
   function navigateTo(post) {
     if (!post) return;
-    window.location.href = permalink(post);
+    const idx = currentList.findIndex(p => p.post_id === post.post_id);
+    if (idx !== -1) {
+      closeDropdown();
+      jumpToIndex(idx, { showTooltip: true, smooth: true });
+      setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 1500);
+    } else {
+      window.location.href = permalink(post);
+    }
   }
 
   function updateActiveHighlight() {
@@ -558,10 +588,13 @@
     allPosts = main;
     unnumberedPosts = unnumbered;
 
-    const missingCount = 1788 - main.length;
+    const maxId = main.length > 0 ? main[main.length - 1].post_id : 1788;
+    const missingCount = maxId - main.length;
     totalStat.textContent = main.length;
-    rangeStat.textContent = "1 – 1788";
+    rangeStat.textContent = "1 – " + maxId;
     missingStat.textContent = missingCount;
+
+    renderRecentUpdates(main);
 
     setupInfiniteScroll();
     setupIndicatorObserver();
@@ -618,6 +651,66 @@
         if (!btn) return;
         switchSection(btn.dataset.section);
       });
+    }
+  }
+
+  function renderRecentUpdates(posts) {
+    const banner = document.getElementById("recent-updates-banner");
+    const textEl = document.getElementById("recent-updates-text");
+    if (!banner || !textEl || posts.length === 0) return;
+
+    let latestTime = 0;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    let todayCount = 0;
+
+    posts.forEach(p => {
+      if (!p.date) return;
+      const d = new Date(p.date).getTime();
+      if (!isNaN(d)) {
+        if (d > latestTime) latestTime = d;
+        if (d >= startOfToday) todayCount++;
+      }
+    });
+
+    if (latestTime === 0) return;
+
+    const diffHours = Math.max(0, Math.floor((now.getTime() - latestTime) / (1000 * 60 * 60)));
+    let timeAgoStr = diffHours < 1 ? "less than an hour ago" : (diffHours < 24 ? `${diffHours} hour${diffHours > 1 ? 's' : ''} ago` : `${Math.floor(diffHours/24)} day${Math.floor(diffHours/24) > 1 ? 's' : ''} ago`);
+
+    let text = ``;
+    if (todayCount > 0) {
+      text += `Dropped <strong style="color:var(--accent); font-weight:700;" class="highlight-text-anim">${todayCount} new post${todayCount > 1 ? 's' : ''}</strong> today! `;
+    } else {
+      text += `Archive active. `;
+    }
+    text += `(Last updated: ${timeAgoStr})`;
+
+    textEl.innerHTML = text;
+    banner.style.display = "flex";
+
+    const scroller = document.getElementById("latest-posts-scroller");
+    if (scroller) {
+      const latest = posts.slice(-50).reverse();
+      scroller.innerHTML = latest.map(post => {
+        const idLabel = typeof post.post_id === "number" ? `#${post.post_id}` : "Unnum";
+        const media = post.media && post.media[0];
+        const thumbHtml = media ? `<img src="${Archive.mediaUrl(media.path)}" loading="lazy">` : `<span>-</span>`;
+        
+        let isNew = false;
+        if (post.date) {
+          const d = new Date(post.date).getTime();
+          if (!isNaN(d) && d >= startOfToday) isNew = true;
+        }
+        
+        const newBadge = isNew ? `<div class="badge-new">NEW</div>` : "";
+        const highlightClass = isNew ? " highlighted-post" : "";
+        
+        return `<a href="${permalink(post)}" class="latest-post-card${highlightClass}">
+          <div class="latest-post-thumb">${thumbHtml}${newBadge}</div>
+          <div class="latest-post-id">POST ${idLabel}</div>
+        </a>`;
+      }).join("");
     }
   }
 

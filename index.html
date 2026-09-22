@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MustWatch Archive</title>
+  <title>mustwatch69</title>
   <meta name="description" content="A browsable archive of saved posts." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
   <header class="site-header">
     <div class="container bar">
-      <div class="brand"><span class="dot"></span> MustWatch Archive</div>
+      <div class="brand"><span class="dot"></span> mustwatch69</div>
       <nav class="header-links">
         <span id="online-badge" class="online-badge"></span>
         <a href="index.html">Home</a>
@@ -31,18 +34,26 @@
   <main class="container">
     <section class="hero">
       <div class="channel-id">
-        <div class="channel-avatar">M</div>
+        <div class="channel-avatar"><img src="assets/img/profile.jpg" alt="mustwatch69" /></div>
         <div>
-          <h1>MustWatch Archive</h1>
-          <p>Channel archive · scroll like Telegram, chronological</p>
+          <h1>mustwatch69</h1>
+          <p>Adult premium collection · chronological feed</p>
         </div>
       </div>
 
       <div class="stats-row">
         <div class="stat-pill">Posts: <strong id="stat-total">…</strong></div>
         <div class="stat-pill">Range: <strong id="stat-range">…</strong></div>
-        <div class="stat-pill">Missing numbers: <strong id="stat-missing">…</strong></div>
-        <div class="stat-pill">Visits today: <strong id="stat-visits-today">…</strong></div>
+        <div class="stat-pill">Missing: <strong id="stat-missing">…</strong></div>
+        <div class="stat-pill">Visits: <strong id="stat-visits-today">…</strong></div>
+      </div>
+
+      <div class="recent-updates-banner" id="recent-updates-banner" style="display:none;">
+        <div class="banner-header">
+          <span class="pulse-dot"></span>
+          <div class="updates-text" id="recent-updates-text">Loading updates...</div>
+        </div>
+        <div class="latest-posts-scroller" id="latest-posts-scroller"></div>
       </div>
 
       <div class="section-toggle" id="section-toggle">
@@ -57,7 +68,7 @@
     <div class="loader-row" id="loader-row">Loading more…</div>
   </main>
 
-  <footer class="site-footer">MustWatch Archive · generated locally · no login, no tracking</footer>
+  <footer class="site-footer">mustwatch69 · premium archive</footer>
 
   <div class="scroll-indicator" id="scroll-indicator"></div>
 
@@ -70,10 +81,10 @@
 
   <button type="button" class="jump-toggle-btn" id="jump-toggle-btn" title="Jump to last post" aria-label="Jump to last post">⌄ End Post</button>
 
-  <script src="assets/js/data.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/presence.js"></script>
-  <script src="assets/js/visits.js"></script>
-  <script src="assets/js/home.js"></script>
+  <script src="assets/js/data.js?v=4"></script>
+  <script src="assets/js/auth.js?v=4"></script>
+  <script src="assets/js/presence.js?v=4"></script>
+  <script src="assets/js/visits.js?v=4"></script>
+  <script src="assets/js/home.js?v=4"></script>
 </body>
 </html>
