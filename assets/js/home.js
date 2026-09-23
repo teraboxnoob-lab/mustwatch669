@@ -689,6 +689,9 @@
     textEl.innerHTML = text;
     banner.style.display = "flex";
 
+    const latestDateObj = new Date(latestTime);
+    const startOfLatestDay = new Date(latestDateObj.getFullYear(), latestDateObj.getMonth(), latestDateObj.getDate()).getTime();
+
     const scroller = document.getElementById("latest-posts-scroller");
     if (scroller) {
       const latest = posts.slice(-50).reverse();
@@ -700,7 +703,7 @@
         let isNew = false;
         if (post.date) {
           const d = new Date(post.date).getTime();
-          if (!isNaN(d) && d >= startOfToday) isNew = true;
+          if (!isNaN(d) && d >= startOfLatestDay) isNew = true;
         }
         
         const newBadge = isNew ? `<div class="badge-new">NEW</div>` : "";

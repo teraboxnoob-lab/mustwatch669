@@ -21,6 +21,7 @@
   const URL_RE = /https?:\/\/\S+/g;
 
   let editMode = null; // null = add mode, or { postId, isUnnumbered }
+  let selectedFiles = []; // array of File objects staged for upload
 
   function extractLinks(text) {
     const matches = text.match(URL_RE) || [];
@@ -58,11 +59,47 @@
   });
   postTextInput.dispatchEvent(new Event("input"));
 
+  function renderStagedMedia() {
+    mediaPreview.innerHTML = "";
+    if (selectedFiles.length === 0) return;
+    
+    const grid = document.createElement("div");
+    grid.className = "staged-media-grid";
+    
+    selectedFiles.forEach((file, index) => {
+      const item = document.createElement("div");
+      item.className = "staged-media-item";
+      
+      const objectUrl = URL.createObjectURL(file);
+      if (file.type.startsWith("video/")) {
+        item.innerHTML = `<video src="${objectUrl}" muted></video>`;
+      } else {
+        item.innerHTML = `<img src="${objectUrl}" alt="Preview" />`;
+      }
+      
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "staged-media-remove";
+      removeBtn.innerHTML = "✕";
+      removeBtn.type = "button";
+      removeBtn.onclick = () => {
+        selectedFiles.splice(index, 1);
+        renderStagedMedia();
+      };
+      
+      item.appendChild(removeBtn);
+      grid.appendChild(item);
+    });
+    
+    mediaPreview.appendChild(grid);
+  }
+
   mediaInput.addEventListener("change", () => {
     const files = Array.from(mediaInput.files || []);
-    mediaPreview.innerHTML = files.length
-      ? files.map((f) => `<span class="link-chip">${Archive.escapeHtml(f.name)} (${(f.size / 1024 / 1024).toFixed(1)} MB)</span>`).join(" ")
-      : "";
+    if (files.length > 0) {
+      selectedFiles.push(...files);
+      mediaInput.value = ""; // Clear input so same file can be selected again
+      renderStagedMedia();
+    }
   });
 
   function renderExistingMedia(media) {
@@ -143,7 +180,7 @@
     fd.append("post_id", editMode ? String(editMode.postId) : postIdInput.value);
     fd.append("date", postDateInput.value ? new Date(postDateInput.value).toISOString() : new Date().toISOString());
     fd.append("text", postTextInput.value);
-    Array.from(mediaInput.files || []).forEach((f) => fd.append("media", f, f.name));
+    selectedFiles.forEach((f) => fd.append("media", f, f.name));
 
     const endpoint = editMode ? "/api/edit-post" : "/api/add-post";
     if (editMode) {
@@ -172,7 +209,8 @@
         form.reset();
         postDateInput.value = toLocalDatetimeValue(new Date());
         postTextInput.dispatchEvent(new Event("input"));
-        mediaPreview.innerHTML = "";
+        selectedFiles = [];
+        renderStagedMedia();
       }
     } catch (err) {
       const isNetworkError = err instanceof TypeError;
