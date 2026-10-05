@@ -22,17 +22,21 @@
         <button type="button" class="nav-logout-btn" style="display:none">Log out</button>
       </nav>
     </div>
-    <div class="container header-search-row">
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input id="search-input" class="search-input" type="text" placeholder="Enter a post number to jump, or type to search…" autocomplete="off" />
-        <div class="search-results" id="search-results"></div>
-      </div>
+    <div class="container scrolled-header-content" id="scrolled-header-content" style="display:none; flex-direction:column; gap:6px; padding:10px 16px 16px; width:100%; position:absolute; top:100%; left:0; background:rgba(11,12,15,0.95); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); box-sizing:border-box; z-index:9999;">
+       <!-- Search wrap will be moved here on scroll -->
+       <div id="scrolled-updates-text" style="font-size:0.75rem; color:var(--text-dim); text-align:center;"></div>
     </div>
   </header>
 
   <main class="container">
-    <section class="hero">
+    <section class="hero" id="main-hero-section">
+      <div class="header-search-row" id="hero-search-placeholder" style="padding-bottom: 24px; padding-top: 0;">
+        <div class="search-wrap" id="the-search-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="search-input" class="search-input" type="text" placeholder="Enter a post number to jump, or type to search…" autocomplete="off" />
+          <div class="search-results" id="search-results"></div>
+        </div>
+      </div>
       <div class="channel-id">
         <div class="channel-avatar"><img src="assets/img/profile.jpg" alt="mustwatch69" /></div>
         <div>
@@ -86,5 +90,36 @@
   <script src="assets/js/presence.js?v=4"></script>
   <script src="assets/js/visits.js?v=4"></script>
   <script src="assets/js/home.js?v=4"></script>
+  
+  <script>
+    // Robust sticky search and updates text logic
+    const searchWrap = document.getElementById("the-search-wrap");
+    const searchPlaceholder = document.getElementById("hero-search-placeholder");
+    const scrolledHeader = document.getElementById("scrolled-header-content");
+    const scrolledUpdatesText = document.getElementById("scrolled-updates-text");
+    const mainUpdatesText = document.getElementById("recent-updates-text");
+
+    if (searchWrap && searchPlaceholder && scrolledHeader) {
+      searchPlaceholder.style.minHeight = "48px"; 
+
+      window.addEventListener("scroll", () => {
+        // Use raw scrollY for absolute reliability instead of getBoundingClientRect
+        if (window.scrollY > 120) {
+          if (scrolledHeader.style.display !== "flex") {
+            scrolledHeader.style.display = "flex";
+            scrolledHeader.insertBefore(searchWrap, scrolledUpdatesText);
+            if (mainUpdatesText) {
+              scrolledUpdatesText.innerHTML = mainUpdatesText.innerHTML;
+            }
+          }
+        } else {
+          if (scrolledHeader.style.display !== "none") {
+            scrolledHeader.style.display = "none";
+            searchPlaceholder.appendChild(searchWrap);
+          }
+        }
+      }, { passive: true });
+    }
+  </script>
 </body>
 </html>
