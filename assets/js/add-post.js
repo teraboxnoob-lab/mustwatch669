@@ -86,6 +86,27 @@
         renderStagedMedia();
       };
       
+      const controls = document.createElement("div");
+      controls.className = "staged-media-controls";
+      controls.innerHTML = `
+        <button type="button" class="staged-media-move" ${index === 0 ? "disabled" : ""}>◀</button>
+        <button type="button" class="staged-media-move" ${index === selectedFiles.length - 1 ? "disabled" : ""}>▶</button>
+      `;
+      const buttons = controls.querySelectorAll("button");
+      buttons[0].onclick = () => {
+        const temp = selectedFiles[index - 1];
+        selectedFiles[index - 1] = selectedFiles[index];
+        selectedFiles[index] = temp;
+        renderStagedMedia();
+      };
+      buttons[1].onclick = () => {
+        const temp = selectedFiles[index + 1];
+        selectedFiles[index + 1] = selectedFiles[index];
+        selectedFiles[index] = temp;
+        renderStagedMedia();
+      };
+      
+      item.appendChild(controls);
       item.appendChild(removeBtn);
       grid.appendChild(item);
     });
@@ -233,9 +254,39 @@
 
     const params = new URLSearchParams(window.location.search);
     const editParam = params.get("edit");
+    
     if (editParam !== null) {
       const isUnnumbered = params.get("unnumbered") === "true";
       await loadEditTarget(editParam, isUnnumbered);
+    } else {
+      try {
+        const posts = await Archive.loadMain();
+        if (posts && posts.length > 0) {
+          const lastPost = posts[posts.length - 1];
+          if (typeof lastPost.post_id === "number") {
+            const nextId = lastPost.post_id + 1;
+            postIdInput.value = nextId;
+            
+            const existingIds = new Set(posts.map(p => p.post_id));
+            postIdInput.addEventListener("input", () => {
+              const val = parseInt(postIdInput.value, 10);
+              if (existingIds.has(val)) {
+                formStatus.textContent = "Warning: Post #" + val + " already exists. Checking 'Overwrite' will replace it.";
+                formStatus.className = "form-status warning";
+              } else if (val !== nextId && !isNaN(val)) {
+                formStatus.textContent = "Notice: Expected next post to be #" + nextId;
+                formStatus.className = "form-status hint";
+              } else {
+                formStatus.textContent = "";
+                formStatus.className = "form-status";
+              }
+            });
+            postIdInput.dispatchEvent(new Event("input"));
+          }
+        }
+      } catch (e) {
+        console.error("Could not autofill post ID:", e);
+      }
     }
   }
   init();
