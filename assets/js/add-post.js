@@ -70,6 +70,8 @@
       const item = document.createElement("div");
       item.className = "staged-media-item";
       
+      item.draggable = true;
+      
       const objectUrl = URL.createObjectURL(file);
       if (file.type.startsWith("video/")) {
         item.innerHTML = `<video src="${objectUrl}" muted></video>`;
@@ -86,27 +88,48 @@
         renderStagedMedia();
       };
       
-      const controls = document.createElement("div");
-      controls.className = "staged-media-controls";
-      controls.innerHTML = `
-        <button type="button" class="staged-media-move" ${index === 0 ? "disabled" : ""}>◀</button>
-        <button type="button" class="staged-media-move" ${index === selectedFiles.length - 1 ? "disabled" : ""}>▶</button>
-      `;
-      const buttons = controls.querySelectorAll("button");
-      buttons[0].onclick = () => {
-        const temp = selectedFiles[index - 1];
-        selectedFiles[index - 1] = selectedFiles[index];
-        selectedFiles[index] = temp;
-        renderStagedMedia();
-      };
-      buttons[1].onclick = () => {
-        const temp = selectedFiles[index + 1];
-        selectedFiles[index + 1] = selectedFiles[index];
-        selectedFiles[index] = temp;
-        renderStagedMedia();
-      };
+      item.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index);
+        item.classList.add("dragging");
+      });
+
+      item.addEventListener("dragend", () => {
+        item.classList.remove("dragging");
+        grid.querySelectorAll(".staged-media-item").forEach(el => el.classList.remove("drag-over"));
+      });
+
+      item.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      });
+
+      item.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        if (item !== e.target && item.contains(e.target) || e.target === item) {
+          item.classList.add("drag-over");
+        }
+      });
+
+      item.addEventListener("dragleave", (e) => {
+        if (!item.contains(e.relatedTarget)) {
+          item.classList.remove("drag-over");
+        }
+      });
+
+      item.addEventListener("drop", (e) => {
+        e.preventDefault();
+        item.classList.remove("drag-over");
+        const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+        const toIndex = index;
+
+        if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+          const movedItem = selectedFiles.splice(fromIndex, 1)[0];
+          selectedFiles.splice(toIndex, 0, movedItem);
+          renderStagedMedia();
+        }
+      });
       
-      item.appendChild(controls);
       item.appendChild(removeBtn);
       grid.appendChild(item);
     });
