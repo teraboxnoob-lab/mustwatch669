@@ -939,7 +939,7 @@ footer.site-footer {
 /* Floating "current post" indicator, updates while scrolling the feed */
 .scroll-indicator {
   position: fixed;
-  top: 116px;
+  top: 170px;
   right: 16px;
   background: rgba(20, 22, 27, 0.92);
   border: 1px solid var(--border);
@@ -965,7 +965,7 @@ footer.site-footer {
 /* Right-edge fast scroller: drag the thumb to jump through the whole archive */
 .fast-scroller {
   position: fixed;
-  top: 116px;
+  top: 170px;
   bottom: 84px;
   right: 12px;
   width: 32px;
