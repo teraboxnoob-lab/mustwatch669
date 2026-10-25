@@ -16,7 +16,6 @@
   const fastScrollerTrack = document.getElementById("fast-scroller-track");
   const fastScrollerThumb = document.getElementById("fast-scroller-thumb");
   const fastScrollerTooltip = document.getElementById("fast-scroller-tooltip");
-  const jumpToggleBtn = document.getElementById("jump-toggle-btn");
 
   const SUGGESTION_LIMIT = 8;
   const DEFAULT_HINT = "Type a post number (e.g. 392) to jump straight to it, or type text to see matching posts.";
@@ -29,12 +28,16 @@
   let observer = null;
   let activeSuggestions = [];
   let activeIndex = -1;
+  let postNumberMap = new Map();
 
   let currentIndex = 0;
   let indicatorObserver = null;
   let isDragging = false;
   let indicatorHideTimer = null;
-  let jumpToggleAtEnd = false;
+  let cachedTrackRect = null;
+  let cachedThumbHeight = 48;
+  let indicatorRAF = null;
+  let pendingIndicatorIndex = -1;
 
   let currentOrder = (() => {
     try {
@@ -76,7 +79,6 @@
       const maxId = allPosts[allPosts.length - 1].post_id;
       rangeStat.textContent = currentOrder === "desc" ? `${maxId} – 1` : `1 – ${maxId}`;
     }
-    resetJumpToggle();
   }
 
   function setOrder(order) {
@@ -242,16 +244,33 @@
     }
   }
 
+  function scheduleIndicatorUpdate(idx) {
+    pendingIndicatorIndex = idx;
+    if (indicatorRAF) return;
+    indicatorRAF = requestAnimationFrame(() => {
+      indicatorRAF = null;
+      if (pendingIndicatorIndex >= 0) {
+        updateCurrentIndex(pendingIndicatorIndex, false);
+      }
+    });
+  }
+
   function setupIndicatorObserver() {
-    const headerHeight = document.querySelector(".site-header").offsetHeight;
+    const headerEl = document.querySelector(".site-header");
+    const headerHeight = headerEl ? headerEl.offsetHeight : 54;
     indicatorObserver = new IntersectionObserver((entries) => {
       if (isDragging) return;
-      entries.forEach((entry) => {
+      let lastIntersecting = -1;
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
         if (entry.isIntersecting) {
           const idx = parseInt(entry.target.dataset.index, 10);
-          if (!isNaN(idx)) updateCurrentIndex(idx, false);
+          if (!isNaN(idx)) lastIntersecting = idx;
         }
-      });
+      }
+      if (lastIntersecting >= 0) {
+        scheduleIndicatorUpdate(lastIntersecting);
+      }
     }, { rootMargin: `-${headerHeight + 4}px 0px -75% 0px`, threshold: 0 });
   }
 
@@ -271,9 +290,23 @@
     if (!fromDrag) updateThumbPosition(currentIndex);
   }
 
-  function trackRect() {
-    return fastScroller.getBoundingClientRect();
+  function updateTrackMetrics() {
+    if (fastScroller) {
+      cachedTrackRect = fastScroller.getBoundingClientRect();
+      if (fastScrollerThumb) {
+        cachedThumbHeight = fastScrollerThumb.offsetHeight || 48;
+      }
+    }
   }
+
+  function trackRect() {
+    if (!cachedTrackRect || cachedTrackRect.height === 0) updateTrackMetrics();
+    return cachedTrackRect;
+  }
+
+  window.addEventListener("resize", () => {
+    cachedTrackRect = null;
+  }, { passive: true });
 
   // A smooth-scroll animation fires many intermediate 'scroll' events, and
   // the indicator IntersectionObserver would otherwise treat each one as a
@@ -303,17 +336,18 @@
   function updateThumbPosition(index) {
     if (currentList.length <= 1) return;
     const rect = trackRect();
-    const usable = rect.height - fastScrollerThumb.offsetHeight;
+    if (!rect || rect.height <= 0) return;
+    const usable = rect.height - cachedThumbHeight;
     const fraction = index / (currentList.length - 1);
     fastScrollerThumb.style.top = `${Math.max(0, Math.min(usable, fraction * usable))}px`;
   }
 
   function resetScroller(totalCount) {
+    cachedTrackRect = null;
     fastScroller.classList.toggle("visible", totalCount > BATCH_SIZE);
     fastScrollerThumb.style.top = "0px";
     fastScrollerTooltip.classList.remove("visible");
     scrollIndicator.classList.remove("visible");
-    resetJumpToggle();
   }
 
   // Scrolls so el's top sits headerOffset below the viewport top, based on
@@ -444,59 +478,6 @@
     fastScroller.addEventListener("pointercancel", onPointerUp);
   }
 
-  // Bottom-right FAB: jumps to the last post, then flips to jump back to
-  // the first post on the next tap (and back again), like a toggle.
-  function resetJumpToggle() {
-    jumpToggleAtEnd = false;
-    if (!jumpToggleBtn) return;
-    const isDesc = currentOrder === "desc";
-    jumpToggleBtn.textContent = isDesc ? "⌄ Oldest Post" : "⌄ End Post";
-    const label = isDesc ? "Jump to oldest post" : "Jump to last post";
-    jumpToggleBtn.title = label;
-    jumpToggleBtn.setAttribute("aria-label", label);
-  }
-
-  function setupJumpToggle() {
-    if (!jumpToggleBtn) return;
-    jumpToggleBtn.addEventListener("click", () => {
-      if (currentList.length === 0) return;
-      
-      suppressObserverUntilScrollSettles();
-
-      if (jumpToggleAtEnd) {
-        // Start Post: scroll to absolute top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        updateCurrentIndex(0, true);
-        fastScrollerThumb.style.top = "0px";
-      } else {
-        // End Post: scroll to absolute bottom
-        const lastIndex = currentList.length - 1;
-        renderUpTo(lastIndex);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        settleScrollToBottom();
-        updateCurrentIndex(lastIndex, true);
-        if (trackRect().height > 0) {
-          const thumbTop = trackRect().height - fastScrollerThumb.offsetHeight;
-          fastScrollerThumb.style.top = `${thumbTop}px`;
-        }
-      }
-
-      jumpToggleAtEnd = !jumpToggleAtEnd;
-      const isDesc = currentOrder === "desc";
-      if (isDesc) {
-        jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Latest Post" : "⌄ Oldest Post";
-        const label = jumpToggleAtEnd ? "Jump to latest post" : "Jump to oldest post";
-        jumpToggleBtn.title = label;
-        jumpToggleBtn.setAttribute("aria-label", label);
-      } else {
-        jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Start Post" : "⌄ End Post";
-        const label = jumpToggleAtEnd ? "Jump to first post" : "Jump to last post";
-        jumpToggleBtn.title = label;
-        jumpToggleBtn.setAttribute("aria-label", label);
-      }
-    });
-  }
-
   // --- Search: number jumps straight to the post, text shows a
   // click-to-open suggestions dropdown. The main feed underneath is never
   // filtered — search is purely a "find & go to a post" tool. ---
@@ -517,22 +498,37 @@
   }
 
   function buildSuggestions(rawQuery) {
-    const base = getOrderedList(getCurrentBaseList(), currentOrder, currentSection === "numbered");
     const query = rawQuery.trim();
-    if (!query) return { suggestions: [], exactJump: null };
+    if (!query) return { suggestions: [], exactJump: null, isNumeric: false, query: "" };
 
     if (/^\d+$/.test(query)) {
       const num = parseInt(query, 10);
-      const exact = base.find((p) => p.post_id === num) || null;
-      const partial = base
-        .filter((p) => typeof p.post_id === "number" && p.post_id !== num && String(p.post_id).includes(query))
-        .slice(0, SUGGESTION_LIMIT - (exact ? 1 : 0));
+      const exact = currentSection === "numbered" ? (postNumberMap.get(num) || null) : null;
+      const partial = [];
+      const maxMatches = SUGGESTION_LIMIT - (exact ? 1 : 0);
+
+      // Fast scan through currentList (which is already sorted)
+      for (let i = 0; i < currentList.length && partial.length < maxMatches; i++) {
+        const p = currentList[i];
+        if (typeof p.post_id === "number" && p.post_id !== num) {
+          if (String(p.post_id).includes(query)) {
+            partial.push(p);
+          }
+        }
+      }
       const suggestions = exact ? [exact, ...partial] : partial;
       return { suggestions, exactJump: exact, isNumeric: true, query };
     }
 
     const q = query.toLowerCase();
-    const suggestions = base.filter((p) => (p.text || "").toLowerCase().includes(q));
+    const suggestions = [];
+    for (let i = 0; i < currentList.length && suggestions.length < SUGGESTION_LIMIT; i++) {
+      const p = currentList[i];
+      const text = p._clean !== undefined ? p._clean : (p._clean = (p.text || "").toLowerCase());
+      if (text.includes(q)) {
+        suggestions.push(p);
+      }
+    }
     return { suggestions, exactJump: null, isNumeric: false, query };
   }
 
@@ -654,6 +650,15 @@
     allPosts = main;
     unnumberedPosts = unnumbered;
 
+    postNumberMap = new Map();
+    main.forEach(p => {
+      postNumberMap.set(p.post_id, p);
+      p._clean = (p.text || "").toLowerCase();
+    });
+    unnumbered.forEach(p => {
+      p._clean = (p.text || "").toLowerCase();
+    });
+
     const maxId = main.length > 0 ? main[main.length - 1].post_id : 1788;
     const missingCount = maxId - main.length;
     totalStat.textContent = main.length;
@@ -665,11 +670,22 @@
     setupInfiniteScroll();
     setupIndicatorObserver();
     setupFastScroller();
-    setupJumpToggle();
     updateOrderUI();
     resetFeed(getOrderedList(allPosts, currentOrder, true));
 
-    searchInput.addEventListener("input", () => renderDropdown(searchInput.value));
+    let searchDebounceTimer = null;
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchDebounceTimer);
+      const val = searchInput.value;
+      if (!val.trim()) {
+        renderDropdown("");
+        return;
+      }
+      const isNum = /^\d+$/.test(val.trim());
+      searchDebounceTimer = setTimeout(() => {
+        renderDropdown(val);
+      }, isNum ? 16 : 80);
+    });
 
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {

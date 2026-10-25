@@ -97,8 +97,6 @@
     <div class="fast-scroller-tooltip" id="fast-scroller-tooltip"></div>
   </div>
 
-  <button type="button" class="jump-toggle-btn" id="jump-toggle-btn" title="Jump to last post" aria-label="Jump to last post">⌄ End Post</button>
-
   <script src="assets/js/data.js?v=4"></script>
   <script src="assets/js/auth.js?v=4"></script>
   <script src="assets/js/presence.js?v=4"></script>
@@ -116,22 +114,45 @@
     if (searchWrap && searchPlaceholder && scrolledHeader) {
       searchPlaceholder.style.minHeight = "48px"; 
 
+      let scrollRAF = null;
       window.addEventListener("scroll", () => {
-        // Use raw scrollY for absolute reliability instead of getBoundingClientRect
-        if (window.scrollY > 120) {
-          if (scrolledHeader.style.display !== "flex") {
-            scrolledHeader.style.display = "flex";
-            scrolledHeader.insertBefore(searchWrap, scrolledUpdatesText);
-            if (mainUpdatesText) {
-              scrolledUpdatesText.innerHTML = mainUpdatesText.innerHTML;
+        if (scrollRAF) return;
+        scrollRAF = requestAnimationFrame(() => {
+          scrollRAF = null;
+          const isScrolled = window.scrollY > 120;
+          if (isScrolled) {
+            if (scrolledHeader.style.display !== "flex") {
+              const active = document.activeElement;
+              const hasFocus = searchWrap.contains(active);
+              const selStart = hasFocus ? active.selectionStart : null;
+              const selEnd = hasFocus ? active.selectionEnd : null;
+
+              scrolledHeader.style.display = "flex";
+              scrolledHeader.insertBefore(searchWrap, scrolledUpdatesText);
+              if (mainUpdatesText && !scrolledUpdatesText.hasChildNodes()) {
+                scrolledUpdatesText.innerHTML = mainUpdatesText.innerHTML;
+              }
+              if (hasFocus && active) {
+                active.focus();
+                if (selStart !== null) active.setSelectionRange(selStart, selEnd);
+              }
+            }
+          } else {
+            if (scrolledHeader.style.display !== "none") {
+              const active = document.activeElement;
+              const hasFocus = searchWrap.contains(active);
+              const selStart = hasFocus ? active.selectionStart : null;
+              const selEnd = hasFocus ? active.selectionEnd : null;
+
+              scrolledHeader.style.display = "none";
+              searchPlaceholder.appendChild(searchWrap);
+              if (hasFocus && active) {
+                active.focus();
+                if (selStart !== null) active.setSelectionRange(selStart, selEnd);
+              }
             }
           }
-        } else {
-          if (scrolledHeader.style.display !== "none") {
-            scrolledHeader.style.display = "none";
-            searchPlaceholder.appendChild(searchWrap);
-          }
-        }
+        });
       }, { passive: true });
     }
   </script>
