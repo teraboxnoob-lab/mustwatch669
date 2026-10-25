@@ -39,13 +39,10 @@
   let indicatorRAF = null;
   let pendingIndicatorIndex = -1;
 
-  let currentOrder = (() => {
-    try {
-      return localStorage.getItem("mustwatch_sort_order") || "asc";
-    } catch (_) {
-      return "asc";
-    }
-  })();
+  let currentOrder = "asc";
+  try {
+    localStorage.removeItem("mustwatch_sort_order");
+  } catch (_) {}
 
   function getOrderedList(posts, order, isNumbered) {
     const list = posts.slice();
@@ -84,9 +81,6 @@
   function setOrder(order) {
     if (currentOrder === order) return;
     currentOrder = order;
-    try {
-      localStorage.setItem("mustwatch_sort_order", order);
-    } catch (_) {}
     updateOrderUI();
     const sorted = getOrderedList(getCurrentBaseList(), currentOrder, currentSection === "numbered");
     resetFeed(sorted);
