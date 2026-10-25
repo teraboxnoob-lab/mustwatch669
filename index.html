@@ -60,9 +60,23 @@
         <div class="latest-posts-scroller" id="latest-posts-scroller"></div>
       </div>
 
-      <div class="section-toggle" id="section-toggle">
-        <button class="toggle-btn active" data-section="numbered" type="button">Numbered Archive</button>
-        <button class="toggle-btn" data-section="unnumbered" type="button">Unnumbered Posts</button>
+      <div class="feed-controls-bar">
+        <div class="section-toggle" id="section-toggle">
+          <button class="toggle-btn active" data-section="numbered" type="button">Numbered Archive</button>
+          <button class="toggle-btn" data-section="unnumbered" type="button">Unnumbered Posts</button>
+        </div>
+
+        <div class="sort-toggle-wrap">
+          <span class="sort-label">Order:</span>
+          <div class="sort-toggle" id="sort-toggle" role="group" aria-label="Posts order">
+            <button class="sort-btn active" id="sort-btn-asc" data-order="asc" type="button" title="Oldest to Newest (Post #1 first)" aria-pressed="true">
+              <span class="sort-arrow">↑</span> Oldest First
+            </button>
+            <button class="sort-btn" id="sort-btn-desc" data-order="desc" type="button" title="Newest to Oldest (Latest post first)" aria-pressed="false">
+              <span class="sort-arrow">↓</span> Newest First (Desc)
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="search-meta" id="search-meta">Type a post number (e.g. 392) to jump straight to it, or type text to see matching posts.</div>

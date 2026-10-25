@@ -36,6 +36,61 @@
   let indicatorHideTimer = null;
   let jumpToggleAtEnd = false;
 
+  let currentOrder = (() => {
+    try {
+      return localStorage.getItem("mustwatch_sort_order") || "asc";
+    } catch (_) {
+      return "asc";
+    }
+  })();
+
+  function getOrderedList(posts, order, isNumbered) {
+    const list = posts.slice();
+    if (isNumbered) {
+      return order === "desc"
+        ? list.sort((a, b) => Number(b.post_id || 0) - Number(a.post_id || 0))
+        : list.sort((a, b) => Number(a.post_id || 0) - Number(b.post_id || 0));
+    } else {
+      return list.sort((a, b) => {
+        const tA = a.date ? new Date(a.date).getTime() : 0;
+        const tB = b.date ? new Date(b.date).getTime() : 0;
+        if (tA !== tB) {
+          return order === "desc" ? tB - tA : tA - tB;
+        }
+        return 0;
+      });
+    }
+  }
+
+  function getCurrentBaseList() {
+    return currentSection === "numbered" ? allPosts : unnumberedPosts;
+  }
+
+  function updateOrderUI() {
+    document.querySelectorAll(".sort-btn").forEach((btn) => {
+      const isActive = btn.dataset.order === currentOrder;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+    if (rangeStat && allPosts.length > 0) {
+      const maxId = allPosts[allPosts.length - 1].post_id;
+      rangeStat.textContent = currentOrder === "desc" ? `${maxId} – 1` : `1 – ${maxId}`;
+    }
+    resetJumpToggle();
+  }
+
+  function setOrder(order) {
+    if (currentOrder === order) return;
+    currentOrder = order;
+    try {
+      localStorage.setItem("mustwatch_sort_order", order);
+    } catch (_) {}
+    updateOrderUI();
+    const sorted = getOrderedList(getCurrentBaseList(), currentOrder, currentSection === "numbered");
+    resetFeed(sorted);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function permalink(post) {
     return typeof post.post_id === "number"
       ? `post.html?id=${post.post_id}`
@@ -394,9 +449,11 @@
   function resetJumpToggle() {
     jumpToggleAtEnd = false;
     if (!jumpToggleBtn) return;
-    jumpToggleBtn.textContent = "⌄ End Post";
-    jumpToggleBtn.title = "Jump to last post";
-    jumpToggleBtn.setAttribute("aria-label", "Jump to last post");
+    const isDesc = currentOrder === "desc";
+    jumpToggleBtn.textContent = isDesc ? "⌄ Oldest Post" : "⌄ End Post";
+    const label = isDesc ? "Jump to oldest post" : "Jump to last post";
+    jumpToggleBtn.title = label;
+    jumpToggleBtn.setAttribute("aria-label", label);
   }
 
   function setupJumpToggle() {
@@ -425,10 +482,18 @@
       }
 
       jumpToggleAtEnd = !jumpToggleAtEnd;
-      jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Start Post" : "⌄ End Post";
-      const label = jumpToggleAtEnd ? "Jump to first post" : "Jump to last post";
-      jumpToggleBtn.title = label;
-      jumpToggleBtn.setAttribute("aria-label", label);
+      const isDesc = currentOrder === "desc";
+      if (isDesc) {
+        jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Latest Post" : "⌄ Oldest Post";
+        const label = jumpToggleAtEnd ? "Jump to latest post" : "Jump to oldest post";
+        jumpToggleBtn.title = label;
+        jumpToggleBtn.setAttribute("aria-label", label);
+      } else {
+        jumpToggleBtn.textContent = jumpToggleAtEnd ? "⌃ Start Post" : "⌄ End Post";
+        const label = jumpToggleAtEnd ? "Jump to first post" : "Jump to last post";
+        jumpToggleBtn.title = label;
+        jumpToggleBtn.setAttribute("aria-label", label);
+      }
     });
   }
 
@@ -452,7 +517,7 @@
   }
 
   function buildSuggestions(rawQuery) {
-    const base = currentSection === "numbered" ? allPosts : unnumberedPosts;
+    const base = getOrderedList(getCurrentBaseList(), currentOrder, currentSection === "numbered");
     const query = rawQuery.trim();
     if (!query) return { suggestions: [], exactJump: null };
 
@@ -577,7 +642,8 @@
     closeDropdown();
     searchMeta.textContent = DEFAULT_HINT;
     searchMeta.classList.remove("hint-jump");
-    resetFeed(section === "numbered" ? allPosts : unnumberedPosts);
+    const activeBase = section === "numbered" ? allPosts : unnumberedPosts;
+    resetFeed(getOrderedList(activeBase, currentOrder, section === "numbered"));
   }
 
   async function init() {
@@ -591,7 +657,7 @@
     const maxId = main.length > 0 ? main[main.length - 1].post_id : 1788;
     const missingCount = maxId - main.length;
     totalStat.textContent = main.length;
-    rangeStat.textContent = "1 – " + maxId;
+    rangeStat.textContent = currentOrder === "desc" ? `${maxId} – 1` : `1 – ${maxId}`;
     missingStat.textContent = missingCount;
 
     renderRecentUpdates(main);
@@ -600,7 +666,8 @@
     setupIndicatorObserver();
     setupFastScroller();
     setupJumpToggle();
-    resetFeed(allPosts);
+    updateOrderUI();
+    resetFeed(getOrderedList(allPosts, currentOrder, true));
 
     searchInput.addEventListener("input", () => renderDropdown(searchInput.value));
 
@@ -650,6 +717,15 @@
         const btn = e.target.closest(".toggle-btn");
         if (!btn) return;
         switchSection(btn.dataset.section);
+      });
+    }
+
+    const sortToggle = document.getElementById("sort-toggle");
+    if (sortToggle) {
+      sortToggle.addEventListener("click", (e) => {
+        const btn = e.target.closest(".sort-btn");
+        if (!btn) return;
+        setOrder(btn.dataset.order);
       });
     }
   }
