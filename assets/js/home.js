@@ -180,7 +180,8 @@
 
   function observeLazyImages(fromIndex, toIndex) {
     ensureLazyObserver();
-    for (let i = fromIndex; i < toIndex; i++) {
+    const start = (toIndex - fromIndex > 60) ? Math.max(fromIndex, toIndex - 40) : fromIndex;
+    for (let i = start; i < toIndex; i++) {
       const el = document.getElementById(`feed-post-${i}`);
       if (!el) continue;
       el.querySelectorAll(".lazy-thumb[data-src]").forEach((img) => observer.observe(img));
@@ -232,7 +233,8 @@
 
   function observeIndicator(fromIndex) {
     if (!indicatorObserver) return;
-    for (let i = fromIndex; i < renderedCount; i++) {
+    const start = Math.max(fromIndex, renderedCount - 40);
+    for (let i = start; i < renderedCount; i++) {
       const el = document.getElementById(`feed-post-${i}`);
       if (el) indicatorObserver.observe(el);
     }
@@ -352,19 +354,18 @@
     window.scrollTo({ top: Math.max(0, window.scrollY + diff), behavior });
   }
 
-  // Jumping straight to a far-away post (e.g. post 1 -> the last post)
-  // inserts hundreds of posts' worth of <img data-src> at once, none of
-  // which have loaded yet (ensureLazyObserver only loads images within
-  // 300px of the viewport). So the initial scroll lands short - it's
-  // computed against collapsed, not-yet-loaded image heights. Re-snap to
-  // the same element a few times as those nearby images load in and the
-  // layout grows, until the position settles.
-  function settleScrollTo(el, headerOffset, attemptsLeft = 6) {
+  let lastUserScrollTime = 0;
+  window.addEventListener("wheel", () => { lastUserScrollTime = Date.now(); }, { passive: true });
+  window.addEventListener("touchstart", () => { lastUserScrollTime = Date.now(); }, { passive: true });
+
+  // Re-snap to el gently as nearby images load, but abort immediately if user scrolls
+  function settleScrollTo(el, headerOffset, attemptsLeft = 3) {
     if (attemptsLeft <= 0) return;
     setTimeout(() => {
+      if (Date.now() - lastUserScrollTime < 400) return;
       scrollElementToTop(el, headerOffset, "auto");
       settleScrollTo(el, headerOffset, attemptsLeft - 1);
-    }, 180);
+    }, 150);
   }
 
   function settleScrollToBottom(attemptsLeft = 6) {
@@ -387,8 +388,11 @@
     updateCurrentIndex(targetIndex, true);
 
     const fraction = currentList.length > 1 ? targetIndex / (currentList.length - 1) : 0;
-    const thumbTop = fraction * (trackRect().height - fastScrollerThumb.offsetHeight);
-    fastScrollerThumb.style.top = `${thumbTop}px`;
+    const rect = trackRect();
+    if (rect && rect.height > 0) {
+      const thumbTop = fraction * (rect.height - cachedThumbHeight);
+      fastScrollerThumb.style.top = `${thumbTop}px`;
+    }
 
     if (showTooltip) {
       const post = currentList[targetIndex];
@@ -478,6 +482,7 @@
 
   function highlightSnippet(text, query, len = 90) {
     const clean = (text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return "";
     const idx = clean.toLowerCase().indexOf(query.toLowerCase());
     if (idx === -1) return Archive.escapeHtml(Archive.textPreview(clean, len));
     const start = Math.max(0, idx - 25);
@@ -485,10 +490,15 @@
     let snippet = clean.slice(start, end);
     if (start > 0) snippet = "…" + snippet;
     if (end < clean.length) snippet += "…";
-    return Archive.escapeHtml(snippet).replace(
-      new RegExp(Archive.escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"),
-      (m) => `<mark>${m}</mark>`
-    );
+    try {
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return Archive.escapeHtml(snippet).replace(
+        new RegExp(Archive.escapeHtml(escapedQuery), "ig"),
+        (m) => `<mark>${m}</mark>`
+      );
+    } catch (_) {
+      return Archive.escapeHtml(snippet);
+    }
   }
 
   function buildSuggestions(rawQuery) {
@@ -601,7 +611,8 @@
     const idx = currentList.findIndex(p => p.post_id === post.post_id);
     if (idx !== -1) {
       closeDropdown();
-      jumpToIndex(idx, { showTooltip: true, smooth: true });
+      if (searchInput) searchInput.blur();
+      jumpToIndex(idx, { showTooltip: true, smooth: false });
       setTimeout(() => fastScrollerTooltip.classList.remove("visible"), 1500);
     } else {
       window.location.href = permalink(post);

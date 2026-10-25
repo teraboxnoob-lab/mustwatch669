@@ -43,9 +43,14 @@ const Archive = (() => {
 
   async function loadMain() {
     if (mainPosts) return mainPosts;
-    const res = await fetch("data/website-posts.json");
-    if (!res.ok) throw new Error("Failed to load website-posts.json");
-    const basePosts = await res.json();
+    let basePosts = null;
+    if (typeof window !== "undefined" && window.__STATIC_ARCHIVE__ && window.__STATIC_ARCHIVE__.numbered) {
+      basePosts = window.__STATIC_ARCHIVE__.numbered;
+    } else {
+      const res = await fetch("data/website-posts.json");
+      if (!res.ok) throw new Error("Failed to load website-posts.json");
+      basePosts = await res.json();
+    }
     const feed = await loadFeed();
     mainPosts = applyOverlay(basePosts, feed.numbered).sort((a, b) => a.post_id - b.post_id);
     mainById = new Map(mainPosts.map((p) => [p.post_id, p]));
@@ -54,9 +59,14 @@ const Archive = (() => {
 
   async function loadUnnumbered() {
     if (unnumberedPosts) return unnumberedPosts;
-    const res = await fetch("data/website-posts-unnumbered.json");
-    if (!res.ok) throw new Error("Failed to load website-posts-unnumbered.json");
-    const basePosts = await res.json();
+    let basePosts = null;
+    if (typeof window !== "undefined" && window.__STATIC_ARCHIVE__ && window.__STATIC_ARCHIVE__.unnumbered) {
+      basePosts = window.__STATIC_ARCHIVE__.unnumbered;
+    } else {
+      const res = await fetch("data/website-posts-unnumbered.json");
+      if (!res.ok) throw new Error("Failed to load website-posts-unnumbered.json");
+      basePosts = await res.json();
+    }
     const feed = await loadFeed();
     unnumberedPosts = applyOverlay(basePosts, feed.unnumbered);
     return unnumberedPosts;
