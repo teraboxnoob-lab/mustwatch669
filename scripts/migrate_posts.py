@@ -50,4 +50,14 @@ with open(numbered_path, 'w', encoding='utf-8') as f:
 with open(unnumbered_path, 'w', encoding='utf-8') as f:
     json.dump(new_unnumbered, f, separators=(',', ':'))
 
-print(f"Migrated {len(migrated)} posts.")
+bundle_path = "data/website-posts-bundle.js"
+bundle_content = (
+    "window.__STATIC_ARCHIVE__ = {\n"
+    f"  numbered: {json.dumps(numbered_posts, separators=(',', ':'))},\n"
+    f"  unnumbered: {json.dumps(new_unnumbered, separators=(',', ':'))}\n"
+    "};\n"
+)
+with open(bundle_path, 'w', encoding='utf-8') as f:
+    f.write(bundle_content)
+
+print(f"Migrated {len(migrated)} posts and updated website-posts-bundle.js.")

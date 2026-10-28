@@ -132,6 +132,15 @@ def main():
     with open(os.path.join(data_dir, "website-posts-unnumbered.json"), "w", encoding="utf-8") as f:
         json.dump(unnumbered_posts, f, ensure_ascii=False, separators=(",", ":"))
 
+    bundle_content = (
+        "window.__STATIC_ARCHIVE__ = {\n"
+        f"  numbered: {json.dumps(main_posts, ensure_ascii=False, separators=(',', ':'))},\n"
+        f"  unnumbered: {json.dumps(unnumbered_posts, ensure_ascii=False, separators=(',', ':'))}\n"
+        "};\n"
+    )
+    with open(os.path.join(data_dir, "website-posts-bundle.js"), "w", encoding="utf-8") as f:
+        f.write(bundle_content)
+
     all_ids = [p["post_id"] for p in main_posts]
     missing_numbers = sorted(set(range(1, 1789)) - set(all_ids))
 
