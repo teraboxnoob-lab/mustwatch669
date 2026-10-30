@@ -130,7 +130,7 @@ class Handler(SimpleHTTPRequestHandler):
         # Force revalidation on exactly these two files; static assets and
         # media keep normal caching since they don't change post-to-post.
         path = self.path.split("?", 1)[0]
-        if (path.startswith("/data/") and path.endswith(".json")) or path.startswith("/api/"):
+        if (path.startswith("/data/") and (path.endswith(".json") or path.endswith(".js"))) or path.startswith("/api/"):
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
@@ -277,6 +277,7 @@ class Handler(SimpleHTTPRequestHandler):
         if is_unnumbered:
             posts.append(post)
             save_json(unnumbered_path, posts)
+            update_bundle()
         else:
             if existing_index is not None:
                 posts[existing_index] = post
@@ -284,6 +285,7 @@ class Handler(SimpleHTTPRequestHandler):
                 posts.append(post)
             posts.sort(key=lambda p: p["post_id"])
             save_json(main_path, posts)
+        update_bundle()
 
         return {"post_id": post_id, "media_saved": len(media_entries), "links_found": len(links)}
 
@@ -350,12 +352,14 @@ class Handler(SimpleHTTPRequestHandler):
         links = extract_links(text)
         posts[index] = {"post_id": post_id, "date": date, "text": text, "media": kept_media, "links": links}
         save_json(path, posts)
+        update_bundle()
         return {"post_id": post_id, "media_count": len(kept_media), "links_found": len(links)}
 
     def _handle_delete_post(self, fields):
         posts, path, index, is_unnumbered, post_id = self._resolve_target(fields)
         removed = posts.pop(index)
         save_json(path, posts)
+        update_bundle()
 
         added_prefix = "media/added/"
         for m in removed.get("media", []):
@@ -368,6 +372,20 @@ class Handler(SimpleHTTPRequestHandler):
             os.rmdir(post_media_dir)
 
         return {"post_id": post_id}
+
+
+def update_bundle():
+    data_dir = os.path.join(PROJECT_ROOT, "data")
+    main_posts = load_json(os.path.join(data_dir, "website-posts.json"), [])
+    unnumbered_posts = load_json(os.path.join(data_dir, "website-posts-unnumbered.json"), [])
+    bundle_content = (
+        "window.__STATIC_ARCHIVE__ = {\n"
+        f"  numbered: {json.dumps(main_posts, ensure_ascii=False, separators=(',', ':'))},\n"
+        f"  unnumbered: {json.dumps(unnumbered_posts, ensure_ascii=False, separators=(',', ':'))}\n"
+        "};\n"
+    )
+    with open(os.path.join(data_dir, "website-posts-bundle.js"), "w", encoding="utf-8") as f:
+        f.write(bundle_content)
 
 
 def main():
